@@ -434,24 +434,24 @@
       pointer-events: none;
       z-index: 50;
       overflow: hidden;
-
-      .bottom-logo::after{
-  content: "";
-  position: absolute;
-  inset: -40%;
-  background: linear-gradient(
+    }
+    .bottom-logo::after{
+    content: "";
+    position: absolute;
+    inset: -40%;
+    background: linear-gradient(
     120deg,
     transparent 40%,
     rgba(255,255,255,0.35) 50%,
     transparent 60%
-  );
-  transform: translateX(-120%);
-  animation: shineSweep 4.2s ease-in-out infinite;
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
+    );
+      transform: translateX(-120%);
+      animation: shineSweep 4.2s ease-in-out infinite;
+      mix-blend-mode: screen;
+      pointer-events: none;
     }
+
+    
     .bottom-logo img{
       width: 100%;
       height: auto;
@@ -863,4 +863,5 @@
 
 </body>
 </html>
+
 
