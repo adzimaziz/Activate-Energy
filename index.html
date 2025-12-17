@@ -7,7 +7,10 @@
     content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
   />
   <title>Mission Control</title>
+
+  <!-- ✅ Force dark mode hints -->
   <meta name="theme-color" content="#051320" />
+  <meta name="color-scheme" content="dark" />
 
   <style>
     :root{
@@ -18,6 +21,9 @@
       --text: rgba(255,255,255,0.92);
       --muted: rgba(255,255,255,0.70);
       --danger: #ff4d6d;
+
+      /* ✅ tell browser we are dark UI */
+      color-scheme: dark;
     }
 
     /* ✅ HARD LOCK: stop scroll / swipe / bounce */
@@ -41,6 +47,14 @@
       -webkit-user-select: none;
       -webkit-touch-callout: none;
       -webkit-overflow-scrolling: auto;
+    }
+
+    /* ✅ if user device is light mode, still keep dark */
+    @media (prefers-color-scheme: light){
+      html, body{
+        background-color: #000 !important;
+        color: #fff !important;
+      }
     }
 
     /* Starfield */
@@ -384,17 +398,10 @@
       opacity: 0.95;
     }
     @keyframes sparkMove{
-      0%{
-        transform: translate(0,0) scale(1);
-        opacity: 1;
-      }
-      100%{
-        transform: translate(var(--dx), var(--dy)) scale(0.15);
-        opacity: 0;
-      }
+      0%{ transform: translate(0,0) scale(1); opacity: 1; }
+      100%{ transform: translate(var(--dx), var(--dy)) scale(0.15); opacity: 0; }
     }
 
-    /* center flash ring */
     .sparkRing{
       position: fixed;
       width: 22px;
@@ -411,26 +418,29 @@
       0%{ transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; }
       100%{ transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
     }
-/* ✅ Slow pulse animation for bottom logo */
-@keyframes logoPulse{
-  0%   { transform: translateX(-50%) scale(0.3);    opacity: 0.75; }
-  50%  { transform: translateX(-50%) scale(0.36); opacity: 1; }
-  100% { transform: translateX(-50%) scale(0.3);    opacity: 0.75; }
-}
 
-.bottom-logo{
-  position: fixed;
-  bottom: 10px;
-  left: 20px;              /* ✅ distance from left edge */
-  width: 64px;             /* logo size */
-  pointer-events: none;
-  z-index: 50;
+    /* ✅ Slow pulse animation for bottom-left logo (no shifting) */
+    @keyframes logoPulse{
+      0%   { transform: scale(0.92); opacity: 0.70; }
+      50%  { transform: scale(1.00); opacity: 1.00; }
+      100% { transform: scale(0.92); opacity: 0.70; }
+    }
 
-  animation: logoPulse 3.2s ease-in-out infinite;
-}
-
-
-
+    .bottom-logo{
+      position: fixed;
+      bottom: 10px;
+      left: 20px;            /* ✅ move left/right here */
+      width: 64px;           /* ✅ logo size here */
+      pointer-events: none;
+      z-index: 50;
+      transform-origin: left bottom;
+      animation: logoPulse 3.2s ease-in-out infinite;
+    }
+    .bottom-logo img{
+      width: 100%;
+      height: auto;
+      display: block;
+    }
   </style>
 </head>
 
@@ -494,7 +504,6 @@
         </div>
       </div>
 
-
       <div class="successOverlay" id="successOverlay">
         <div class="successCard">
           <h2 class="successTitle">MISSION SUCCESS</h2>
@@ -510,307 +519,12 @@
     </div>
   </div>
 
-<script>
-  const REQUIRED_TAPS = 100;
-  const COUNTDOWN_SECONDS = 45; // set 0 to disable timer
+  <script>
+    const REQUIRED_TAPS = 100;
+    const COUNTDOWN_SECONDS = 45; // set 0 to disable timer
 
-  // ✅ Always resets on refresh (no localStorage)
-  let state = {
-    taps: 0,
-    success: false,
-    finishedAt: null,
-    timeLeft: COUNTDOWN_SECONDS,
-    timerRunning: false
-  };
-
-  let timerInterval = null;
-  let audioUnlocked = false;
-  let audioCtx = null;
-
-  const el = {
-    tapSurface: document.getElementById("tapSurface"),
-    btnTap: document.getElementById("btnTap"),
-    count: document.getElementById("count"),
-    bar: document.getElementById("bar"),
-    lastAction: document.getElementById("lastAction"),
-    timeLeft: document.getElementById("timeLeft"),
-    timerText: document.getElementById("timerText"),
-    timerDot: document.getElementById("timerDot"),
-    progText: document.getElementById("progText"),
-    progDot: document.getElementById("progDot"),
-    subTitle: document.getElementById("subTitle"),
-    successOverlay: document.getElementById("successOverlay"),
-    stamp: document.getElementById("stamp"),
-    tapStamp: document.getElementById("tapStamp"),
-    btnClose: document.getElementById("btnClose"),
-    hud: document.getElementById("hud"),
-    hintText: document.getElementById("hintText"),
-  };
-
-  el.hintText.innerHTML =
-    `Tap anywhere (or press the button) to send energy pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
-
-  /* ✅ block touch move / wheel / gesture */
-  document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
-  document.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
-  document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
-  document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
-  document.addEventListener("gestureend", (e) => e.preventDefault(), { passive: false });
-
-  function ensureAudio(){
-    if(audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  function unlockAudioOnce(){
-    if(audioUnlocked) return;
-    audioUnlocked = true;
-    ensureAudio();
-    if(audioCtx.state === "suspended") audioCtx.resume();
-  }
-
-  // ✅ HAPTIC / VIBRATION (Android works, iPhone usually doesn't)
-  function haptic(pattern = 15){
-    if (navigator.vibrate) navigator.vibrate(pattern);
-  }
-
-  /* ✅ Tap sparks (visual effect) */
-  function randBetween(a,b){ return a + Math.random()*(b-a); }
-
-  function spawnTapSparks(clientX, clientY){
-    // Ring flash
-    const ring = document.createElement("div");
-    ring.className = "sparkRing";
-    ring.style.left = clientX + "px";
-    ring.style.top  = clientY + "px";
-    document.body.appendChild(ring);
-    setTimeout(()=>ring.remove(), 450);
-
-    // Sparks
-    const colors = [
-      "rgba(0,234,255,0.95)",   // cyan
-      "rgba(0,255,156,0.95)",   // mint
-      "rgba(168,85,255,0.95)",  // mag
-      "rgba(255,255,255,0.90)"  // white
-    ];
-
-    const count = 12; // number of sparks
-    for(let i=0;i<count;i++){
-      const s = document.createElement("div");
-      s.className = "spark";
-
-      const size = randBetween(4, 10);
-      s.style.width  = size + "px";
-      s.style.height = size + "px";
-
-      s.style.left = (clientX - size/2) + "px";
-      s.style.top  = (clientY - size/2) + "px";
-
-      const angle = randBetween(0, Math.PI * 2);
-      const dist  = randBetween(18, 70);
-      const dx = Math.cos(angle) * dist;
-      const dy = Math.sin(angle) * dist;
-
-      s.style.setProperty("--dx", dx.toFixed(1) + "px");
-      s.style.setProperty("--dy", dy.toFixed(1) + "px");
-
-      const c = colors[Math.floor(Math.random()*colors.length)];
-      s.style.background = c;
-      s.style.filter = "drop-shadow(0 0 10px " + c.replace("0.95","0.55").replace("0.90","0.45") + ")";
-
-      document.body.appendChild(s);
-      setTimeout(()=>s.remove(), 650);
-    }
-  }
-
-  function playBeep(type="tap"){
-    if(!audioUnlocked) return;
-    ensureAudio();
-    const now = audioCtx.currentTime;
-
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(type==="success" ? 2200 : 1600, now);
-
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    if(type === "tap"){
-      osc.type = "square";
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(780, now + 0.06);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-      osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now); osc.stop(now + 0.10);
-    } else {
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
-      osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now); osc.stop(now + 0.25);
-
-      const osc2 = audioCtx.createOscillator();
-      const gain2 = audioCtx.createGain();
-      osc2.type = "sine";
-      osc2.frequency.setValueAtTime(1320, now + 0.12);
-      gain2.gain.setValueAtTime(0.0001, now + 0.12);
-      gain2.gain.exponentialRampToValueAtTime(0.10, now + 0.14);
-      gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.33);
-      osc2.connect(filter); filter.connect(gain2); gain2.connect(audioCtx.destination);
-      osc2.start(now + 0.12); osc2.stop(now + 0.34);
-    }
-  }
-
-  function formatTMinus(sec){
-    const s = Math.max(0, Math.floor(sec));
-    const mm = String(Math.floor(s / 60)).padStart(2,"0");
-    const ss = String(s % 60).padStart(2,"0");
-    return `T-${mm}:${ss}`;
-  }
-
-  function updateUI(){
-    el.count.textContent = `${state.taps} / ${REQUIRED_TAPS}`;
-    const pct = Math.min(100, Math.round((state.taps / REQUIRED_TAPS) * 100));
-    el.bar.style.width = `${pct}%`;
-
-    if(state.success){
-      el.progText.textContent = "Docked";
-      el.progDot.classList.add("ok");
-    } else if(state.taps > 0){
-      el.progText.textContent = `Pulses: ${state.taps}/${REQUIRED_TAPS}`;
-      el.progDot.classList.add("ok");
-    } else {
-      el.progText.textContent = "Awaiting taps";
-      el.progDot.classList.remove("ok");
-    }
-
-    if(COUNTDOWN_SECONDS > 0){
-      el.timeLeft.textContent = `${Math.max(0, state.timeLeft)}s`;
-      el.timerText.textContent = formatTMinus(state.timeLeft);
-      if(state.timeLeft <= 10 && !state.success){
-        el.timerDot.style.background = "var(--danger)";
-        el.timerDot.style.boxShadow = "0 0 12px rgba(255,77,109,0.40)";
-      } else {
-        el.timerDot.style.background = state.success ? "var(--mint)" : "var(--warn)";
-        el.timerDot.style.boxShadow = state.success
-          ? "0 0 12px rgba(0,255,156,0.40)"
-          : "0 0 12px rgba(255,204,0,0.35)";
-      }
-    } else {
-      el.timeLeft.textContent = "OFF";
-      el.timerText.textContent = "T-—";
-      el.timerDot.style.background = "var(--mint)";
-    }
-
-    if(state.success){
-      el.subTitle.textContent = "Mission complete. Energy locked in.";
-    } else if(state.timeLeft === 0 && COUNTDOWN_SECONDS > 0){
-      el.subTitle.textContent = "Timer expired. Refresh to retry.";
-    } else {
-      el.subTitle.textContent = `Tap ${REQUIRED_TAPS} times to activate energy`;
-    }
-
-    const disabled = state.success || (COUNTDOWN_SECONDS > 0 && state.timeLeft === 0);
-    el.btnTap.disabled = disabled;
-    el.btnTap.style.opacity = disabled ? 0.55 : 1;
-  }
-
-  function startTimerIfNeeded(){
-    if(COUNTDOWN_SECONDS <= 0) return;
-    if(state.timerRunning) return;
-
-    state.timerRunning = true;
-    timerInterval = setInterval(() => {
-      if(state.success){
-        stopTimer();
-        return;
-      }
-      state.timeLeft = Math.max(0, state.timeLeft - 1);
-      if(state.timeLeft === 0){
-        stopTimer();
-        el.lastAction.textContent = "⛔ Timer expired (refresh to retry)";
-      }
-      updateUI();
-    }, 1000);
-  }
-
-  function stopTimer(){
-    state.timerRunning = false;
-    if(timerInterval){
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
-  }
-
-  function burstParticles(){
-    const colors = ["rgba(0,234,255,0.95)", "rgba(0,255,156,0.95)", "rgba(168,85,255,0.95)", "rgba(255,255,255,0.85)"];
-    for(let i=0;i<26;i++){
-      const p = document.createElement("div");
-      p.className = "particle";
-      p.style.left = `${Math.random()*100}%`;
-      p.style.top = `${-20 - Math.random()*40}px`;
-      p.style.background = colors[Math.floor(Math.random()*colors.length)];
-      p.style.animationDuration = `${1.2 + Math.random()*0.9}s`;
-      p.style.opacity = `${0.65 + Math.random()*0.35}`;
-      el.hud.appendChild(p);
-      setTimeout(()=>p.remove(), 2200);
-    }
-  }
-
-  function showSuccess(){
-    state.success = true;
-    state.finishedAt = Date.now();
-    stopTimer();
-
-    const t = new Date(state.finishedAt);
-    const stamp = `${t.toLocaleDateString()} ${t.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
-    el.stamp.textContent = `Time: ${stamp}`;
-    el.tapStamp.textContent = `Pulses: ${state.taps}`;
-
-    el.successOverlay.style.display = "flex";
-    playBeep("success");
-    haptic([60, 40, 60]); // ✅ stronger haptic pattern
-    burstParticles();
-    updateUI();
-  }
-
-  function hideSuccess(){
-    el.successOverlay.style.display = "none";
-  }
-
-  function onTap(x, y){
-    unlockAudioOnce();
-    if(state.success) return;
-    if(COUNTDOWN_SECONDS > 0 && state.timeLeft === 0) return;
-
-    startTimerIfNeeded();
-
-    state.taps = Math.min(REQUIRED_TAPS, state.taps + 1);
-    el.lastAction.textContent = `✅ Energy sent (${state.taps}/${REQUIRED_TAPS})`;
-    playBeep("tap");
-
-    // ✅ haptic every tap (slightly stronger every 10 taps)
-    if (state.taps % 10 === 0) haptic(35);
-    else haptic(12);
-
-    // ✅ sparks at tap position (if provided)
-    if (typeof x === "number" && typeof y === "number"){
-      spawnTapSparks(x, y);
-    }
-
-    if(state.taps >= REQUIRED_TAPS){
-      showSuccess();
-    } else {
-      updateUI();
-    }
-  }
-
-  function init(){
-    // ✅ Always reset on load (refresh resets)
-    state = {
+    // ✅ Always resets on refresh (no localStorage)
+    let state = {
       taps: 0,
       success: false,
       finishedAt: null,
@@ -818,48 +532,318 @@
       timerRunning: false
     };
 
-    updateUI();
-    el.lastAction.textContent = "🟢 Ready – tap to start";
+    let timerInterval = null;
+    let audioUnlocked = false;
+    let audioCtx = null;
 
-    // Use pointerdown for reliable mobile tapping
-    el.tapSurface.addEventListener("pointerdown", (e) => {
-      if(e.target.closest("#successOverlay")) return;
-      onTap(e.clientX, e.clientY);
-    });
+    const el = {
+      tapSurface: document.getElementById("tapSurface"),
+      btnTap: document.getElementById("btnTap"),
+      count: document.getElementById("count"),
+      bar: document.getElementById("bar"),
+      lastAction: document.getElementById("lastAction"),
+      timeLeft: document.getElementById("timeLeft"),
+      timerText: document.getElementById("timerText"),
+      timerDot: document.getElementById("timerDot"),
+      progText: document.getElementById("progText"),
+      progDot: document.getElementById("progDot"),
+      subTitle: document.getElementById("subTitle"),
+      successOverlay: document.getElementById("successOverlay"),
+      stamp: document.getElementById("stamp"),
+      tapStamp: document.getElementById("tapStamp"),
+      btnClose: document.getElementById("btnClose"),
+      hud: document.getElementById("hud"),
+      hintText: document.getElementById("hintText"),
+    };
 
-    el.btnTap.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      onTap(e.clientX, e.clientY);
-    });
+    el.hintText.innerHTML =
+      `Tap anywhere (or press the button) to send energy pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
 
-    el.btnClose.addEventListener("pointerdown", (e) => {
-      e.stopPropagation();
-      hideSuccess();
-    });
+    /* ✅ block touch move / wheel / gesture */
+    document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+    document.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
+    document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+    document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
+    document.addEventListener("gestureend", (e) => e.preventDefault(), { passive: false });
 
-    // iOS double-tap zoom prevention (best effort)
-    let lastTouchEnd = 0;
-    document.addEventListener("touchend", function (event) {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) event.preventDefault();
-      lastTouchEnd = now;
-    }, { passive: false });
-  }
+    function ensureAudio(){
+      if(audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    function unlockAudioOnce(){
+      if(audioUnlocked) return;
+      audioUnlocked = true;
+      ensureAudio();
+      if(audioCtx.state === "suspended") audioCtx.resume();
+    }
 
-  init();
-</script>
+    // ✅ HAPTIC / VIBRATION (Android works, iPhone usually doesn't)
+    function haptic(pattern = 15){
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    }
 
-<div class="bottom-logo">
-  <img src="logo.png" alt="Logo">
-</div>
+    /* ✅ Tap sparks (visual effect) */
+    function randBetween(a,b){ return a + Math.random()*(b-a); }
+
+    function spawnTapSparks(clientX, clientY){
+      const ring = document.createElement("div");
+      ring.className = "sparkRing";
+      ring.style.left = clientX + "px";
+      ring.style.top  = clientY + "px";
+      document.body.appendChild(ring);
+      setTimeout(()=>ring.remove(), 450);
+
+      const colors = [
+        "rgba(0,234,255,0.95)",
+        "rgba(0,255,156,0.95)",
+        "rgba(168,85,255,0.95)",
+        "rgba(255,255,255,0.90)"
+      ];
+
+      const count = 12;
+      for(let i=0;i<count;i++){
+        const s = document.createElement("div");
+        s.className = "spark";
+
+        const size = randBetween(4, 10);
+        s.style.width  = size + "px";
+        s.style.height = size + "px";
+
+        s.style.left = (clientX - size/2) + "px";
+        s.style.top  = (clientY - size/2) + "px";
+
+        const angle = randBetween(0, Math.PI * 2);
+        const dist  = randBetween(18, 70);
+        const dx = Math.cos(angle) * dist;
+        const dy = Math.sin(angle) * dist;
+
+        s.style.setProperty("--dx", dx.toFixed(1) + "px");
+        s.style.setProperty("--dy", dy.toFixed(1) + "px");
+
+        const c = colors[Math.floor(Math.random()*colors.length)];
+        s.style.background = c;
+
+        document.body.appendChild(s);
+        setTimeout(()=>s.remove(), 650);
+      }
+    }
+
+    function playBeep(type="tap"){
+      if(!audioUnlocked) return;
+      ensureAudio();
+      const now = audioCtx.currentTime;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(type==="success" ? 2200 : 1600, now);
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      if(type === "tap"){
+        osc.type = "square";
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(780, now + 0.06);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.10);
+      } else {
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.25);
+
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1320, now + 0.12);
+        gain2.gain.setValueAtTime(0.0001, now + 0.12);
+        gain2.gain.exponentialRampToValueAtTime(0.10, now + 0.14);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.33);
+        osc2.connect(filter); filter.connect(gain2); gain2.connect(audioCtx.destination);
+        osc2.start(now + 0.12); osc2.stop(now + 0.34);
+      }
+    }
+
+    function formatTMinus(sec){
+      const s = Math.max(0, Math.floor(sec));
+      const mm = String(Math.floor(s / 60)).padStart(2,"0");
+      const ss = String(s % 60).padStart(2,"0");
+      return `T-${mm}:${ss}`;
+    }
+
+    function updateUI(){
+      el.count.textContent = `${state.taps} / ${REQUIRED_TAPS}`;
+      const pct = Math.min(100, Math.round((state.taps / REQUIRED_TAPS) * 100));
+      el.bar.style.width = `${pct}%`;
+
+      if(state.success){
+        el.progText.textContent = "Docked";
+        el.progDot.classList.add("ok");
+      } else if(state.taps > 0){
+        el.progText.textContent = `Pulses: ${state.taps}/${REQUIRED_TAPS}`;
+        el.progDot.classList.add("ok");
+      } else {
+        el.progText.textContent = "Awaiting taps";
+        el.progDot.classList.remove("ok");
+      }
+
+      if(COUNTDOWN_SECONDS > 0){
+        el.timeLeft.textContent = `${Math.max(0, state.timeLeft)}s`;
+        el.timerText.textContent = formatTMinus(state.timeLeft);
+      } else {
+        el.timeLeft.textContent = "OFF";
+        el.timerText.textContent = "T-—";
+      }
+
+      if(state.success){
+        el.subTitle.textContent = "Mission complete. Energy locked in.";
+      } else if(state.timeLeft === 0 && COUNTDOWN_SECONDS > 0){
+        el.subTitle.textContent = "Timer expired. Refresh to retry.";
+      } else {
+        el.subTitle.textContent = `Tap ${REQUIRED_TAPS} times to activate energy`;
+      }
+
+      const disabled = state.success || (COUNTDOWN_SECONDS > 0 && state.timeLeft === 0);
+      el.btnTap.disabled = disabled;
+      el.btnTap.style.opacity = disabled ? 0.55 : 1;
+    }
+
+    function startTimerIfNeeded(){
+      if(COUNTDOWN_SECONDS <= 0) return;
+      if(state.timerRunning) return;
+
+      state.timerRunning = true;
+      timerInterval = setInterval(() => {
+        if(state.success){
+          stopTimer();
+          return;
+        }
+        state.timeLeft = Math.max(0, state.timeLeft - 1);
+        if(state.timeLeft === 0){
+          stopTimer();
+          el.lastAction.textContent = "⛔ Timer expired (refresh to retry)";
+        }
+        updateUI();
+      }, 1000);
+    }
+
+    function stopTimer(){
+      state.timerRunning = false;
+      if(timerInterval){
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function burstParticles(){
+      const colors = ["rgba(0,234,255,0.95)", "rgba(0,255,156,0.95)", "rgba(168,85,255,0.95)", "rgba(255,255,255,0.85)"];
+      for(let i=0;i<26;i++){
+        const p = document.createElement("div");
+        p.className = "particle";
+        p.style.left = `${Math.random()*100}%`;
+        p.style.top = `${-20 - Math.random()*40}px`;
+        p.style.background = colors[Math.floor(Math.random()*colors.length)];
+        p.style.animationDuration = `${1.2 + Math.random()*0.9}s`;
+        p.style.opacity = `${0.65 + Math.random()*0.35}`;
+        el.hud.appendChild(p);
+        setTimeout(()=>p.remove(), 2200);
+      }
+    }
+
+    function showSuccess(){
+      state.success = true;
+      state.finishedAt = Date.now();
+      stopTimer();
+
+      const t = new Date(state.finishedAt);
+      const stamp = `${t.toLocaleDateString()} ${t.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
+      el.stamp.textContent = `Time: ${stamp}`;
+      el.tapStamp.textContent = `Pulses: ${state.taps}`;
+
+      el.successOverlay.style.display = "flex";
+      playBeep("success");
+      haptic([60, 40, 60]);
+      burstParticles();
+      updateUI();
+    }
+
+    function hideSuccess(){
+      el.successOverlay.style.display = "none";
+    }
+
+    function onTap(x, y){
+      unlockAudioOnce();
+      if(state.success) return;
+      if(COUNTDOWN_SECONDS > 0 && state.timeLeft === 0) return;
+
+      startTimerIfNeeded();
+
+      state.taps = Math.min(REQUIRED_TAPS, state.taps + 1);
+      el.lastAction.textContent = `✅ Energy sent (${state.taps}/${REQUIRED_TAPS})`;
+      playBeep("tap");
+
+      if (state.taps % 10 === 0) haptic(35);
+      else haptic(12);
+
+      if (typeof x === "number" && typeof y === "number"){
+        spawnTapSparks(x, y);
+      }
+
+      if(state.taps >= REQUIRED_TAPS){
+        showSuccess();
+      } else {
+        updateUI();
+      }
+    }
+
+    function init(){
+      state = {
+        taps: 0,
+        success: false,
+        finishedAt: null,
+        timeLeft: COUNTDOWN_SECONDS,
+        timerRunning: false
+      };
+
+      updateUI();
+      el.lastAction.textContent = "🟢 Ready – tap to start";
+
+      el.tapSurface.addEventListener("pointerdown", (e) => {
+        if(e.target.closest("#successOverlay")) return;
+        onTap(e.clientX, e.clientY);
+      });
+
+      el.btnTap.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        onTap(e.clientX, e.clientY);
+      });
+
+      el.btnClose.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        hideSuccess();
+      });
+
+      let lastTouchEnd = 0;
+      document.addEventListener("touchend", function (event) {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) event.preventDefault();
+        lastTouchEnd = now;
+      }, { passive: false });
+    }
+
+    init();
+  </script>
+
+  <!-- ✅ Bottom-left logo -->
+  <div class="bottom-logo">
+    <img src="logo.png" alt="Logo">
+  </div>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
