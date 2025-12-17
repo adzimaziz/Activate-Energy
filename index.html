@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+  />
+  <title>Mission Control</title>
+  <meta name="theme-color" content="#051320" />
+
+  <style>
+    :root{
+      --cyan:#00eaff;
+      --mint:#00ff9c;
+      --mag:#a855ff;
+      --warn:#ffcc00;
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.70);
+      --danger: #ff4d6d;
+    }
+
+    /* ✅ HARD LOCK: stop scroll / bounce */
+    html, body{
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      overflow: hidden !important;
+      overscroll-behavior: none;            /* Android/Chrome */
+      touch-action: none;                   /* stop pan/zoom gestures */
+      position: fixed;                      /* iOS helps stop scrolling */
+      inset: 0;
+    }
+
+    body{
+      background: radial-gradient(1200px 800px at 50% 20%, #09223a 0%, #02060b 55%, #000 100%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      /* iOS rubber band reduction */
+      -webkit-overflow-scrolling: auto;
+    }
+
+    /* Starfield (3 layers) */
+    .stars, .stars::before, .stars::after{
+      content:"";
+      position:absolute;
+      inset:-200px;
+      background-repeat: repeat;
+      background-size: 600px 600px;
+      opacity: 0.55;
+      animation: drift 38s linear infinite;
+      pointer-events:none;
+    }
+    .stars{
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.55) 50%, transparent 55%),
+        radial-gradient(1.5px 1.5px at 140px 220px, rgba(0,234,255,0.55) 50%, transparent 55%),
+        radial-gradient(1.8px 1.8px at 420px 90px, rgba(255,255,255,0.45) 50%, transparent 55%),
+        radial-gradient(1.2px 1.2px at 520px 420px, rgba(0,255,156,0.50) 50%, transparent 55%),
+        radial-gradient(1px 1px at 320px 540px, rgba(255,255,255,0.40) 50%, transparent 55%);
+      filter: drop-shadow(0 0 6px rgba(0,234,255,0.20));
+    }
+    .stars::before{
+      background-image:
+        radial-gradient(2px 2px at 80px 120px, rgba(255,255,255,0.40) 50%, transparent 55%),
+        radial-gradient(1.3px 1.3px at 260px 310px, rgba(168,85,255,0.45) 50%, transparent 55%),
+        radial-gradient(1.6px 1.6px at 490px 260px, rgba(0,234,255,0.35) 50%, transparent 55%),
+        radial-gradient(1px 1px at 380px 40px, rgba(255,255,255,0.35) 50%, transparent 55%);
+      opacity:0.45;
+      animation-duration: 52s;
+      transform: translate3d(0,0,0) scale(1.05);
+    }
+    .stars::after{
+      background-image:
+        radial-gradient(1.2px 1.2px at 40px 480px, rgba(0,255,156,0.40) 50%, transparent 55%),
+        radial-gradient(1.4px 1.4px at 210px 70px, rgba(255,255,255,0.35) 50%, transparent 55%),
+        radial-gradient(1.1px 1.1px at 560px 180px, rgba(0,234,255,0.30) 50%, transparent 55%),
+        radial-gradient(1.3px 1.3px at 360px 360px, rgba(255,255,255,0.30) 50%, transparent 55%);
+      opacity:0.35;
+      animation-duration: 68s;
+      transform: translate3d(0,0,0) scale(1.1);
+    }
+    @keyframes drift{
+      0%{ transform: translate3d(0,0,0); }
+      100%{ transform: translate3d(160px, 220px, 0); }
+    }
+
+    /* Scanline overlay */
+    .scanlines{
+      position:absolute; inset:0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.03),
+        rgba(255,255,255,0.03) 1px,
+        rgba(0,0,0,0) 3px,
+        rgba(0,0,0,0) 7px
+      );
+      mix-blend-mode: overlay;
+      opacity:0.20;
+      pointer-events:none;
+    }
+    .scanner{
+      position:absolute; inset:-30%;
+      background: linear-gradient(transparent 40%, rgba(0,234,255,0.10) 50%, transparent 60%);
+      animation: sweep 3.6s ease-in-out infinite;
+      pointer-events:none;
+      opacity:0.85;
+    }
+    @keyframes sweep{
+      0%{ transform: translateY(-35%); }
+      50%{ transform: translateY(35%); }
+      100%{ transform: translateY(-35%); }
+    }
+
+    .wrap{
+      position:absolute;
+      inset: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 22px;
+    }
+
+    .hud{
+      width: min(720px, 96vw);
+      border: 1px solid rgba(0,234,255,0.35);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(0,234,255,0.07), rgba(0,0,0,0.25)),
+        radial-gradient(800px 260px at 20% 0%, rgba(0,255,156,0.12), transparent 55%),
+        radial-gradient(800px 260px at 80% 0%, rgba(168,85,255,0.10), transparent 55%);
+      box-shadow: 0 0 30px rgba(0,234,255,0.18), 0 0 80px rgba(0,0,0,0.60);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(0,234,255,0.25);
+      gap: 10px;
+    }
+
+    .brand{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .brand .title{
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+      text-transform: uppercase;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+    .brand .sub{ font-size: 12px; color: var(--muted); }
+
+    .status{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pill{
+      border: 1px solid rgba(0,234,255,0.28);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(0,234,255,0.06);
+      display:inline-flex; gap:8px; align-items:center;
+      white-space: nowrap;
+    }
+    .dot{
+      width:8px; height:8px; border-radius:99px;
+      background: var(--warn);
+      box-shadow: 0 0 12px rgba(255,204,0,0.35);
+    }
+    .dot.ok{
+      background: var(--mint);
+      box-shadow: 0 0 12px rgba(0,255,156,0.40);
+    }
+
+    .content{
+      padding: 18px 18px 16px;
+      display:grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+    }
+    @media (max-width: 640px){
+      .content{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      border: 1px solid rgba(0,234,255,0.20);
+      background: rgba(0,0,0,0.22);
+      border-radius: 16px;
+      padding: 14px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .big{
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+      min-height: 250px;
+      justify-content:space-between;
+    }
+    .headline{
+      font-size: clamp(18px, 2.6vw, 26px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      margin: 0;
+      color: rgba(255,255,255,0.95);
+    }
+    .hint{
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.35;
+      font-size: 13px;
+    }
+
+    .tapZone{
+      border: 1px dashed rgba(0,234,255,0.40);
+      background: rgba(0,234,255,0.05);
+      border-radius: 14px;
+      padding: 14px;
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      min-height: 150px;
+    }
+    .tapZone .count{
+      font-size: 44px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(0,234,255,0.25);
+    }
+    .tapZone .small{
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align:center;
+    }
+
+    .progress{
+      height: 10px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow:hidden;
+      border: 1px solid rgba(0,234,255,0.15);
+      width:100%;
+    }
+    .bar{
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, rgba(0,234,255,0.95), rgba(0,255,156,0.95));
+      box-shadow: 0 0 14px rgba(0,234,255,0.35);
+      transition: width 180ms ease;
+    }
+
+    .btn{
+      width:100%;
+      border:none;
+      border-radius: 14px;
+      padding: 14px 14px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #001019;
+      background: linear-gradient(90deg, var(--cyan), var(--mint));
+      box-shadow: 0 0 18px rgba(0,234,255,0.25), 0 0 26px rgba(0,255,156,0.18);
+      cursor:pointer;
+    }
+    .btn:active{ transform: scale(0.99); }
+
+    .side .row{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .side .row:last-child{ border-bottom:none; }
+    .kv{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .kv b{
+      color: rgba(255,255,255,0.92);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .value{ font-variant-numeric: tabular-nums; color: rgba(255,255,255,0.92); }
+
+    .successOverlay{
+      position:absolute; inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: radial-gradient(700px 420px at 50% 40%, rgba(0,255,156,0.12), rgba(0,0,0,0.82));
+      backdrop-filter: blur(4px);
+      z-index: 9;
+    }
+    .successCard{
+      width: min(560px, 92vw);
+      border-radius: 18px;
+      border: 1px solid rgba(0,255,156,0.45);
+      background: linear-gradient(180deg, rgba(0,255,156,0.08), rgba(0,0,0,0.35));
+      box-shadow: 0 0 30px rgba(0,255,156,0.18), 0 0 100px rgba(0,0,0,0.7);
+      padding: 18px;
+      text-align:center;
+    }
+    .successTitle{
+      margin: 0;
+      font-size: clamp(26px, 4vw, 42px);
+      letter-spacing: 0.10em;
+      font-weight: 950;
+      color: var(--mint);
+      text-shadow: 0 0 18px rgba(0,255,156,0.35);
+      text-transform: uppercase;
+    }
+    .successText{
+      margin: 10px 0 0;
+      color: rgba(255,255,255,0.88);
+      line-height: 1.35;
+      font-size: 14px;
+    }
+    .successMeta{
+      margin-top: 12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      justify-content:center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .miniBtn{
+      margin-top: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,255,156,0.45);
+      background: rgba(0,255,156,0.08);
+      color: rgba(255,255,255,0.92);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 10px 12px;
+      cursor:pointer;
+      width: 100%;
+    }
+
+    .particle{
+      position:absolute;
+      width: 6px;
+      height: 10px;
+      border-radius: 2px;
+      opacity: 0.9;
+      animation: fall 1.6s linear forwards;
+      pointer-events:none;
+    }
+    @keyframes fall{
+      0%{ transform: translateY(-20px) rotate(0deg); opacity: 0; }
+      10%{ opacity: 1; }
+      100%{ transform: translateY(520px) rotate(260deg); opacity: 0; }
+    }
+
+    .footer{
+      padding: 12px 16px 14px;
+      border-top: 1px solid rgba(0,234,255,0.20);
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.62);
+      flex-wrap:wrap;
+    }
+    .kbd{
+      border:1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.06);
+      padding: 4px 8px;
+      border-radius: 10px;
+      color: rgba(255,255,255,0.82);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="stars"></div>
+  <div class="scanlines"></div>
+  <div class="scanner"></div>
+
+  <div class="wrap" id="tapSurface">
+    <div class="hud" id="hud">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">Mission Control Interface</div>
+          <div class="sub" id="subTitle">Tap 5 times to complete docking sequence</div>
+        </div>
+        <div class="status">
+          <div class="pill">
+            <span class="dot" id="timerDot"></span>
+            <span id="timerText">T-00:45</span>
+          </div>
+          <div class="pill">
+            <span class="dot" id="progDot"></span>
+            <span id="progText">Awaiting taps</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="card big">
+          <div>
+            <h1 class="headline">🚀 Docking Protocol</h1>
+            <p class="hint" id="hintText"></p>
+          </div>
+
+          <div class="tapZone" id="tapZone">
+            <div class="small">Pulses Sent</div>
+            <div class="count" id="count">0 / 5</div>
+
+            <div class="progress">
+              <div class="bar" id="bar"></div>
+            </div>
+
+            <button class="btn" id="btnTap" type="button">Tap / Engage</button>
+            <div class="small" id="runInfo"></div>
+          </div>
+        </div>
+
+        <div class="card side">
+          <div class="row">
+            <div class="kv"><b>Mission Timer</b><span>Countdown to lock</span></div>
+            <div class="value" id="timeLeft">45s</div>
+          </div>
+          <div class="row">
+            <div class="kv"><b>Security</b><span>Progress persistence</span></div>
+            <div class="value">ON</div>
+          </div>
+          <div class="row">
+            <div class="kv"><b>Objective</b><span>Required pulses</span></div>
+            <div class="value">5</div>
+          </div>
+          <div class="row">
+            <div class="kv"><b>Diagnostics</b><span>Last action</span></div>
+            <div class="value" id="lastAction">—</div>
+          </div>
+          <div class="row">
+            <div class="kv"><b>Mode</b><span>Tap anywhere</span></div>
+            <div class="value">LOCKED</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div>Touch: <span class="kbd">Tap anywhere</span></div>
+        <div>Build: v1 • Screen locked</div>
+      </div>
+
+      <div class="successOverlay" id="successOverlay">
+        <div class="successCard">
+          <h2 class="successTitle">MISSION SUCCESS</h2>
+          <p class="successText">Docking sequence completed. Welcome aboard, Commander.</p>
+          <div class="successMeta">
+            <span class="kbd" id="stamp">Time: —</span>
+            <span class="kbd" id="tapStamp">Pulses: 5</span>
+          </div>
+          <button class="miniBtn" id="btnClose" type="button">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  const REQUIRED_TAPS = 5;
+  const COUNTDOWN_SECONDS = 45;
+
+  // ✅ per-run storage key (use QR link like ?run=1)
+  const RUN_ID = new URLSearchParams(location.search).get("run") || "default";
+  const STORAGE_KEY = `mission_v1_state_${RUN_ID}`;
+
+  let state = {
+    taps: 0,
+    success: false,
+    finishedAt: null,
+    timeLeft: COUNTDOWN_SECONDS,
+    timerRunning: false
+  };
+
+  let timerInterval = null;
+  let audioUnlocked = false;
+  let audioCtx = null;
+
+  const el = {
+    tapSurface: document.getElementById("tapSurface"),
+    btnTap: document.getElementById("btnTap"),
+    count: document.getElementById("count"),
+    bar: document.getElementById("bar"),
+    lastAction: document.getElementById("lastAction"),
+    timeLeft: document.getElementById("timeLeft"),
+    timerText: document.getElementById("timerText"),
+    timerDot: document.getElementById("timerDot"),
+    progText: document.getElementById("progText"),
+    progDot: document.getElementById("progDot"),
+    subTitle: document.getElementById("subTitle"),
+    successOverlay: document.getElementById("successOverlay"),
+    stamp: document.getElementById("stamp"),
+    tapStamp: document.getElementById("tapStamp"),
+    btnClose: document.getElementById("btnClose"),
+    hud: document.getElementById("hud"),
+    runInfo: document.getElementById("runInfo"),
+    hintText: document.getElementById("hintText")
+  };
+
+  el.hintText.innerHTML =
+    `Tap anywhere (or press the button) to send docking pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
+  el.runInfo.textContent = `RUN ID: ${RUN_ID}`;
+
+  /* ✅ EXTRA HARD LOCK: block touch move / wheel / gesture */
+  document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
+  // iOS pinch/zoom gestures (Safari)
+  document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("gestureend", (e) => e.preventDefault(), { passive: false });
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      const saved = JSON.parse(raw);
+      state.taps = Number(saved.taps ?? 0);
+      state.success = Boolean(saved.success ?? false);
+      state.finishedAt = saved.finishedAt ?? null;
+      state.timeLeft = Number(saved.timeLeft ?? COUNTDOWN_SECONDS);
+      state.timerRunning = Boolean(saved.timerRunning ?? false);
+    }catch(e){}
+  }
+  function saveState(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  function ensureAudio(){
+    if(audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  function unlockAudioOnce(){
+    if(audioUnlocked) return;
+    audioUnlocked = true;
+    ensureAudio();
+    if(audioCtx.state === "suspended") audioCtx.resume();
+  }
+  function playBeep(type="tap"){
+    if(!audioUnlocked) return;
+    ensureAudio();
+    const now = audioCtx.currentTime;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(type==="success" ? 2200 : 1600, now);
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    if(type === "tap"){
+      osc.type = "square";
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(780, now + 0.06);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+      osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now); osc.stop(now + 0.10);
+    } else {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+      osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now); osc.stop(now + 0.25);
+
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1320, now + 0.12);
+      gain2.gain.setValueAtTime(0.0001, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.10, now + 0.14);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.33);
+      osc2.connect(filter); filter.connect(gain2); gain2.connect(audioCtx.destination);
+      osc2.start(now + 0.12); osc2.stop(now + 0.34);
+    }
+  }
+
+  function formatTMinus(sec){
+    const s = Math.max(0, Math.floor(sec));
+    const mm = String(Math.floor(s / 60)).padStart(2,"0");
+    const ss = String(s % 60).padStart(2,"0");
+    return `T-${mm}:${ss}`;
+  }
+
+  function updateUI(){
+    el.count.textContent = `${state.taps} / ${REQUIRED_TAPS}`;
+    const pct = Math.min(100, Math.round((state.taps / REQUIRED_TAPS) * 100));
+    el.bar.style.width = `${pct}%`;
+
+    if(state.success){
+      el.progText.textContent = "Docked";
+      el.progDot.classList.add("ok");
+    } else if(state.taps > 0){
+      el.progText.textContent = `Pulses: ${state.taps}/${REQUIRED_TAPS}`;
+      el.progDot.classList.add("ok");
+    } else {
+      el.progText.textContent = "Awaiting taps";
+      el.progDot.classList.remove("ok");
+    }
+
+    el.timeLeft.textContent = `${Math.max(0, state.timeLeft)}s`;
+    el.timerText.textContent = formatTMinus(state.timeLeft);
+
+    if(state.timeLeft <= 10 && !state.success){
+      el.timerDot.style.background = "var(--danger)";
+      el.timerDot.style.boxShadow = "0 0 12px rgba(255,77,109,0.40)";
+    } else {
+      el.timerDot.style.background = state.success ? "var(--mint)" : "var(--warn)";
+      el.timerDot.style.boxShadow = state.success
+        ? "0 0 12px rgba(0,255,156,0.40)"
+        : "0 0 12px rgba(255,204,0,0.35)";
+    }
+
+    if(state.success){
+      el.subTitle.textContent = "Docking complete. Mission logged.";
+    } else if(state.timeLeft === 0){
+      el.subTitle.textContent = "Timer expired. Change ?run= to try again.";
+    } else {
+      el.subTitle.textContent = "Tap 5 times to complete docking sequence";
+    }
+
+    const disabled = state.success || state.timeLeft === 0;
+    el.btnTap.disabled = disabled;
+    el.btnTap.style.opacity = disabled ? 0.55 : 1;
+  }
+
+  function startTimerIfNeeded(){
+    if(state.timerRunning) return;
+    state.timerRunning = true;
+
+    timerInterval = setInterval(() => {
+      if(state.success){
+        stopTimer();
+        return;
+      }
+      state.timeLeft = Math.max(0, state.timeLeft - 1);
+      if(state.timeLeft === 0){
+        stopTimer();
+        el.lastAction.textContent = "⛔ Timer expired";
+        saveState();
+      }
+      updateUI();
+      saveState();
+    }, 1000);
+
+    saveState();
+  }
+
+  function stopTimer(){
+    state.timerRunning = false;
+    if(timerInterval){
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    saveState();
+  }
+
+  function burstParticles(){
+    const colors = ["rgba(0,234,255,0.95)", "rgba(0,255,156,0.95)", "rgba(168,85,255,0.95)", "rgba(255,255,255,0.85)"];
+    for(let i=0;i<26;i++){
+      const p = document.createElement("div");
+      p.className = "particle";
+      p.style.left = `${Math.random()*100}%`;
+      p.style.top = `${-20 - Math.random()*40}px`;
+      p.style.background = colors[Math.floor(Math.random()*colors.length)];
+      p.style.animationDuration = `${1.2 + Math.random()*0.9}s`;
+      p.style.opacity = `${0.65 + Math.random()*0.35}`;
+      el.hud.appendChild(p);
+      setTimeout(()=>p.remove(), 2200);
+    }
+  }
+
+  function showSuccess(){
+    state.success = true;
+    state.finishedAt = Date.now();
+    stopTimer();
+
+    const t = new Date(state.finishedAt);
+    const stamp = `${t.toLocaleDateString()} ${t.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"})}`;
+    el.stamp.textContent = `Time: ${stamp}`;
+    el.tapStamp.textContent = `Pulses: ${state.taps}`;
+
+    el.successOverlay.style.display = "flex";
+    playBeep("success");
+    burstParticles();
+    saveState();
+    updateUI();
+  }
+
+  function hideSuccess(){
+    el.successOverlay.style.display = "none";
+  }
+
+  function onTap(){
+    unlockAudioOnce();
+    if(state.success) return;
+    if(state.timeLeft === 0) return;
+
+    startTimerIfNeeded();
+
+    state.taps = Math.min(REQUIRED_TAPS, state.taps + 1);
+    el.lastAction.textContent = `✅ Pulse sent (${state.taps}/${REQUIRED_TAPS})`;
+    playBeep("tap");
+
+    if(state.taps >= REQUIRED_TAPS){
+      showSuccess();
+    } else {
+      saveState();
+      updateUI();
+    }
+  }
+
+  function init(){
+    loadState();
+
+    // Safety clamp
+    state.taps = Math.max(0, Math.min(REQUIRED_TAPS, state.taps));
+    if (state.taps < REQUIRED_TAPS) state.success = false;
+
+    if(state.timerRunning && !state.success && state.timeLeft > 0){
+      timerInterval = setInterval(() => {
+        state.timeLeft = Math.max(0, state.timeLeft - 1);
+        if(state.timeLeft === 0){
+          stopTimer();
+          el.lastAction.textContent = "⛔ Timer expired";
+        }
+        updateUI();
+        saveState();
+      }, 1000);
+    }
+
+    updateUI();
+    el.lastAction.textContent = "🟡 Ready";
+
+    // ✅ pointerdown is more reliable than click on mobile
+    el.tapSurface.addEventListener("pointerdown", (e) => {
+      if(e.target.closest("#successOverlay")) return;
+      onTap();
+    });
+
+    el.btnTap.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      onTap();
+    });
+
+    el.btnClose.addEventListener("pointerdown", (e) => {
+      e.stopPropagation();
+      hideSuccess();
+    });
+
+    // iOS double-tap zoom prevention (best effort)
+    let lastTouchEnd = 0;
+    document.addEventListener("touchend", function (event) {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) event.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+  }
+
+  init();
+</script>
+</body>
+</html>
