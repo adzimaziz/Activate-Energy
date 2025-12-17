@@ -411,6 +411,24 @@
       0%{ transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; }
       100%{ transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
     }
+/* ✅ Slow pulse animation for bottom logo */
+@keyframes logoPulse{
+  0%   { transform: translateX(-50%) scale(1);    opacity: 0.75; }
+  50%  { transform: translateX(-50%) scale(1.06); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1);    opacity: 0.75; }
+}
+
+.bottom-logo{
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;          /* change size here */
+  pointer-events: none; /* taps still work */
+  z-index: 50;
+
+  animation: logoPulse 3.2s ease-in-out infinite;
+}
 
   </style>
 </head>
@@ -833,7 +851,13 @@
 
   init();
 </script>
+
+<div class="bottom-logo">
+  <img src="logo.png" alt="Logo">
+</div>
+
 </body>
 </html>
+
 
 
