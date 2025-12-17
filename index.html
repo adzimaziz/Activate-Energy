@@ -422,13 +422,14 @@
   position: fixed;
   bottom: 10px;
   left: 50%;
-  transform: translateX(-50%);
-  width: 64px;          /* change size here */
-  pointer-events: none; /* taps still work */
+  transform: translate(-50%, 0);  /* ✅ true center */
+  width: 64px;                   /* adjust size here */
+  pointer-events: none;
   z-index: 50;
 
   animation: logoPulse 3.2s ease-in-out infinite;
 }
+
 
   </style>
 </head>
@@ -858,6 +859,7 @@
 
 </body>
 </html>
+
 
 
 
