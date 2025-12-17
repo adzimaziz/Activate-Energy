@@ -400,7 +400,7 @@
     <div class="hud" id="hud">
       <div class="topbar">
         <div class="brand">
-          <div class="title">Mission: Activate Energy</div>
+          <div class="title">GCON Energy Mission</div>
           <div class="sub" id="subTitle">Tap 5 times to complete docking sequence</div>
         </div>
         <div class="status">
@@ -423,7 +423,7 @@
           </div>
 
           <div class="tapZone" id="tapZone">
-            <div class="small">Pulses Sent</div>
+            <div class="small">Energy Sent</div>
             <div class="count" id="count">0 / 5</div>
 
             <div class="progress">
@@ -431,7 +431,7 @@
             </div>
 
             <button class="btn" id="btnTap" type="button">Tap / Engage</button>
-            <div class="small">Refresh = reset</div>
+            <div class="small">SENDING ENERGY...</div>
           </div>
         </div>
 
@@ -456,7 +456,7 @@
       </div>
 
       <div class="footer">
-        <div>Touch: <span class="kbd">Tap anywhere</span> • Refresh: <span class="kbd">Reset</span></div>
+        <div>Event: <span class="kbd">Genco Conference</span> • Launching Mission: <span class="kbd">Activate Energy</span></div>
         <div>Build: v2 • No scroll</div>
       </div>
 
@@ -513,7 +513,7 @@
   };
 
   el.hintText.innerHTML =
-    `Tap anywhere (or press the button) to send docking pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
+    `Tap anywhere (or press the button) to send energy pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
 
   /* ✅ block touch move / wheel / gesture */
   document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
@@ -761,5 +761,6 @@
 </script>
 </body>
 </html>
+
 
 
