@@ -532,6 +532,12 @@
     ensureAudio();
     if(audioCtx.state === "suspended") audioCtx.resume();
   }
+
+  // ✅ HAPTIC / VIBRATION (Android works, iPhone usually doesn't)
+  function haptic(pattern = 15){
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  }
+
   function playBeep(type="tap"){
     if(!audioUnlocked) return;
     ensureAudio();
@@ -620,7 +626,7 @@
     } else if(state.timeLeft === 0 && COUNTDOWN_SECONDS > 0){
       el.subTitle.textContent = "Timer expired. Refresh to retry.";
     } else {
-      el.subTitle.textContent = "Tap 5 times to complete docking sequence";
+      el.subTitle.textContent = "Tap 50 times to complete docking sequence";
     }
 
     const disabled = state.success || (COUNTDOWN_SECONDS > 0 && state.timeLeft === 0);
@@ -682,6 +688,7 @@
 
     el.successOverlay.style.display = "flex";
     playBeep("success");
+    haptic([60, 40, 60]); // ✅ stronger haptic pattern
     burstParticles();
     updateUI();
   }
@@ -700,6 +707,10 @@
     state.taps = Math.min(REQUIRED_TAPS, state.taps + 1);
     el.lastAction.textContent = `✅ Pulse sent (${state.taps}/${REQUIRED_TAPS})`;
     playBeep("tap");
+
+    // ✅ haptic every tap (slightly stronger every 10 taps)
+    if (state.taps % 10 === 0) haptic(35);
+    else haptic(12);
 
     if(state.taps >= REQUIRED_TAPS){
       showSuccess();
@@ -750,6 +761,3 @@
 </script>
 </body>
 </html>
-
-
-
