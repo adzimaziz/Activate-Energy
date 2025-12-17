@@ -419,13 +419,16 @@
       100%{ transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
     }
 
-    /* ✅ Slow pulse animation for bottom-left logo (no shifting) */
-    @keyframes logoPulse{
-      0%   { transform: scale(0.92); opacity: 0.70; }
-      50%  { transform: scale(1.00); opacity: 1.00; }
-      100% { transform: scale(0.92); opacity: 0.70; }
+    /* ✅ LOGO SHINE (this was missing in your file) */
+    @keyframes shineSweep{
+      0%   { transform: translateX(-140%) rotate(12deg); opacity: 0; }
+      10%  { opacity: 1; }
+      45%  { transform: translateX(140%) rotate(12deg); opacity: 1; }
+      55%  { opacity: 0; }
+      100% { transform: translateX(140%) rotate(12deg); opacity: 0; }
     }
 
+    /* ✅ Bottom-left logo */
     .bottom-logo{
       position: fixed;
       bottom: 10px;
@@ -434,24 +437,46 @@
       pointer-events: none;
       z-index: 50;
       overflow: hidden;
+      position: fixed;
+    }
+    .bottom-logo{
+      position: fixed;
+      bottom: 10px;
+      left: 20px;
+      width: 64px;
+      pointer-events: none;
+      z-index: 50;
+      overflow: hidden;
+
+      /* ✅ IMPORTANT so ::after positions correctly */
+      position: fixed;
+    }
+    /* better: make it relative for the pseudo element */
+    .bottom-logo{
+      position: fixed;
+      bottom: 10px;
+      left: 20px;
+      width: 64px;
+      pointer-events: none;
+      z-index: 50;
+      overflow: hidden;
+      border-radius: 8px;
     }
     .bottom-logo::after{
-    content: "";
-    position: absolute;
-    inset: -40%;
-    background: linear-gradient(
-    120deg,
-    transparent 40%,
-    rgba(255,255,255,0.35) 50%,
-    transparent 60%
-    );
-      transform: translateX(-120%);
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: linear-gradient(
+        120deg,
+        transparent 40%,
+        rgba(255,255,255,0.35) 50%,
+        transparent 60%
+      );
+      transform: translateX(-140%) rotate(12deg);
       animation: shineSweep 4.2s ease-in-out infinite;
       mix-blend-mode: screen;
       pointer-events: none;
     }
-
-    
     .bottom-logo img{
       width: 100%;
       height: auto;
@@ -539,7 +564,6 @@
     const REQUIRED_TAPS = 100;
     const COUNTDOWN_SECONDS = 45; // set 0 to disable timer
 
-    // ✅ Always resets on refresh (no localStorage)
     let state = {
       taps: 0,
       success: false,
@@ -575,7 +599,6 @@
     el.hintText.innerHTML =
       `Tap anywhere (or press the button) to send energy pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
 
-    /* ✅ block touch move / wheel / gesture */
     document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
     document.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
     document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
@@ -593,12 +616,10 @@
       if(audioCtx.state === "suspended") audioCtx.resume();
     }
 
-    // ✅ HAPTIC / VIBRATION (Android works, iPhone usually doesn't)
     function haptic(pattern = 15){
       if (navigator.vibrate) navigator.vibrate(pattern);
     }
 
-    /* ✅ Tap sparks (visual effect) */
     function randBetween(a,b){ return a + Math.random()*(b-a); }
 
     function spawnTapSparks(clientX, clientY){
@@ -863,5 +884,3 @@
 
 </body>
 </html>
-
-
