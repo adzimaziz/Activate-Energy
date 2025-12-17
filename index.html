@@ -20,15 +20,15 @@
       --danger: #ff4d6d;
     }
 
-    /* ✅ HARD LOCK: stop scroll / bounce */
+    /* ✅ HARD LOCK: stop scroll / swipe / bounce */
     html, body{
       height: 100%;
       width: 100%;
       margin: 0;
       overflow: hidden !important;
-      overscroll-behavior: none;            /* Android/Chrome */
-      touch-action: none;                   /* stop pan/zoom gestures */
-      position: fixed;                      /* iOS helps stop scrolling */
+      overscroll-behavior: none;
+      touch-action: none;
+      position: fixed;
       inset: 0;
     }
 
@@ -40,11 +40,10 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
-      /* iOS rubber band reduction */
       -webkit-overflow-scrolling: auto;
     }
 
-    /* Starfield (3 layers) */
+    /* Starfield */
     .stars, .stars::before, .stars::after{
       content:"";
       position:absolute;
@@ -432,7 +431,7 @@
             </div>
 
             <button class="btn" id="btnTap" type="button">Tap / Engage</button>
-            <div class="small" id="runInfo"></div>
+            <div class="small">Refresh = reset</div>
           </div>
         </div>
 
@@ -442,8 +441,8 @@
             <div class="value" id="timeLeft">45s</div>
           </div>
           <div class="row">
-            <div class="kv"><b>Security</b><span>Progress persistence</span></div>
-            <div class="value">ON</div>
+            <div class="kv"><b>Security</b><span>Persistence</span></div>
+            <div class="value">OFF</div>
           </div>
           <div class="row">
             <div class="kv"><b>Objective</b><span>Required pulses</span></div>
@@ -454,15 +453,15 @@
             <div class="value" id="lastAction">—</div>
           </div>
           <div class="row">
-            <div class="kv"><b>Mode</b><span>Tap anywhere</span></div>
+            <div class="kv"><b>Mode</b><span>Screen</span></div>
             <div class="value">LOCKED</div>
           </div>
         </div>
       </div>
 
       <div class="footer">
-        <div>Touch: <span class="kbd">Tap anywhere</span></div>
-        <div>Build: v1 • Screen locked</div>
+        <div>Touch: <span class="kbd">Tap anywhere</span> • Refresh: <span class="kbd">Reset</span></div>
+        <div>Build: v2 • No scroll</div>
       </div>
 
       <div class="successOverlay" id="successOverlay">
@@ -482,12 +481,9 @@
 
 <script>
   const REQUIRED_TAPS = 5;
-  const COUNTDOWN_SECONDS = 45;
+  const COUNTDOWN_SECONDS = 45; // set 0 to disable timer
 
-  // ✅ per-run storage key (use QR link like ?run=1)
-  const RUN_ID = new URLSearchParams(location.search).get("run") || "default";
-  const STORAGE_KEY = `mission_v1_state_${RUN_ID}`;
-
+  // ✅ Always resets on refresh (no localStorage)
   let state = {
     taps: 0,
     success: false,
@@ -517,37 +513,18 @@
     tapStamp: document.getElementById("tapStamp"),
     btnClose: document.getElementById("btnClose"),
     hud: document.getElementById("hud"),
-    runInfo: document.getElementById("runInfo"),
-    hintText: document.getElementById("hintText")
+    hintText: document.getElementById("hintText"),
   };
 
   el.hintText.innerHTML =
     `Tap anywhere (or press the button) to send docking pulses.<br/>Goal: <b>${REQUIRED_TAPS} taps</b>.`;
-  el.runInfo.textContent = `RUN ID: ${RUN_ID}`;
 
-  /* ✅ EXTRA HARD LOCK: block touch move / wheel / gesture */
+  /* ✅ block touch move / wheel / gesture */
   document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
   document.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
-  // iOS pinch/zoom gestures (Safari)
   document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
   document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
   document.addEventListener("gestureend", (e) => e.preventDefault(), { passive: false });
-
-  function loadState(){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return;
-      const saved = JSON.parse(raw);
-      state.taps = Number(saved.taps ?? 0);
-      state.success = Boolean(saved.success ?? false);
-      state.finishedAt = saved.finishedAt ?? null;
-      state.timeLeft = Number(saved.timeLeft ?? COUNTDOWN_SECONDS);
-      state.timerRunning = Boolean(saved.timerRunning ?? false);
-    }catch(e){}
-  }
-  function saveState(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
-  }
 
   function ensureAudio(){
     if(audioCtx) return;
@@ -624,36 +601,42 @@
       el.progDot.classList.remove("ok");
     }
 
-    el.timeLeft.textContent = `${Math.max(0, state.timeLeft)}s`;
-    el.timerText.textContent = formatTMinus(state.timeLeft);
-
-    if(state.timeLeft <= 10 && !state.success){
-      el.timerDot.style.background = "var(--danger)";
-      el.timerDot.style.boxShadow = "0 0 12px rgba(255,77,109,0.40)";
+    if(COUNTDOWN_SECONDS > 0){
+      el.timeLeft.textContent = `${Math.max(0, state.timeLeft)}s`;
+      el.timerText.textContent = formatTMinus(state.timeLeft);
+      if(state.timeLeft <= 10 && !state.success){
+        el.timerDot.style.background = "var(--danger)";
+        el.timerDot.style.boxShadow = "0 0 12px rgba(255,77,109,0.40)";
+      } else {
+        el.timerDot.style.background = state.success ? "var(--mint)" : "var(--warn)";
+        el.timerDot.style.boxShadow = state.success
+          ? "0 0 12px rgba(0,255,156,0.40)"
+          : "0 0 12px rgba(255,204,0,0.35)";
+      }
     } else {
-      el.timerDot.style.background = state.success ? "var(--mint)" : "var(--warn)";
-      el.timerDot.style.boxShadow = state.success
-        ? "0 0 12px rgba(0,255,156,0.40)"
-        : "0 0 12px rgba(255,204,0,0.35)";
+      el.timeLeft.textContent = "OFF";
+      el.timerText.textContent = "T-—";
+      el.timerDot.style.background = "var(--mint)";
     }
 
     if(state.success){
       el.subTitle.textContent = "Docking complete. Mission logged.";
-    } else if(state.timeLeft === 0){
-      el.subTitle.textContent = "Timer expired. Change ?run= to try again.";
+    } else if(state.timeLeft === 0 && COUNTDOWN_SECONDS > 0){
+      el.subTitle.textContent = "Timer expired. Refresh to retry.";
     } else {
       el.subTitle.textContent = "Tap 5 times to complete docking sequence";
     }
 
-    const disabled = state.success || state.timeLeft === 0;
+    const disabled = state.success || (COUNTDOWN_SECONDS > 0 && state.timeLeft === 0);
     el.btnTap.disabled = disabled;
     el.btnTap.style.opacity = disabled ? 0.55 : 1;
   }
 
   function startTimerIfNeeded(){
+    if(COUNTDOWN_SECONDS <= 0) return;
     if(state.timerRunning) return;
-    state.timerRunning = true;
 
+    state.timerRunning = true;
     timerInterval = setInterval(() => {
       if(state.success){
         stopTimer();
@@ -662,14 +645,10 @@
       state.timeLeft = Math.max(0, state.timeLeft - 1);
       if(state.timeLeft === 0){
         stopTimer();
-        el.lastAction.textContent = "⛔ Timer expired";
-        saveState();
+        el.lastAction.textContent = "⛔ Timer expired (refresh to retry)";
       }
       updateUI();
-      saveState();
     }, 1000);
-
-    saveState();
   }
 
   function stopTimer(){
@@ -678,7 +657,6 @@
       clearInterval(timerInterval);
       timerInterval = null;
     }
-    saveState();
   }
 
   function burstParticles(){
@@ -709,7 +687,6 @@
     el.successOverlay.style.display = "flex";
     playBeep("success");
     burstParticles();
-    saveState();
     updateUI();
   }
 
@@ -720,7 +697,7 @@
   function onTap(){
     unlockAudioOnce();
     if(state.success) return;
-    if(state.timeLeft === 0) return;
+    if(COUNTDOWN_SECONDS > 0 && state.timeLeft === 0) return;
 
     startTimerIfNeeded();
 
@@ -731,34 +708,24 @@
     if(state.taps >= REQUIRED_TAPS){
       showSuccess();
     } else {
-      saveState();
       updateUI();
     }
   }
 
   function init(){
-    loadState();
-
-    // Safety clamp
-    state.taps = Math.max(0, Math.min(REQUIRED_TAPS, state.taps));
-    if (state.taps < REQUIRED_TAPS) state.success = false;
-
-    if(state.timerRunning && !state.success && state.timeLeft > 0){
-      timerInterval = setInterval(() => {
-        state.timeLeft = Math.max(0, state.timeLeft - 1);
-        if(state.timeLeft === 0){
-          stopTimer();
-          el.lastAction.textContent = "⛔ Timer expired";
-        }
-        updateUI();
-        saveState();
-      }, 1000);
-    }
+    // ✅ Always reset on load (refresh resets)
+    state = {
+      taps: 0,
+      success: false,
+      finishedAt: null,
+      timeLeft: COUNTDOWN_SECONDS,
+      timerRunning: false
+    };
 
     updateUI();
-    el.lastAction.textContent = "🟡 Ready";
+    el.lastAction.textContent = "🟢 Ready – tap to start";
 
-    // ✅ pointerdown is more reliable than click on mobile
+    // Use pointerdown for reliable mobile tapping
     el.tapSurface.addEventListener("pointerdown", (e) => {
       if(e.target.closest("#successOverlay")) return;
       onTap();
