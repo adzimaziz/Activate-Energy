@@ -21,8 +21,6 @@
       --text: rgba(255,255,255,0.92);
       --muted: rgba(255,255,255,0.70);
       --danger: #ff4d6d;
-
-      /* ✅ tell browser we are dark UI */
       color-scheme: dark;
     }
 
@@ -419,49 +417,36 @@
       100%{ transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
     }
 
-    /* ✅ LOGO SHINE (this was missing in your file) */
+    /* ===========================
+       ✅ LOGO SHINE (FIXED)
+       =========================== */
     @keyframes shineSweep{
-      0%   { transform: translateX(-140%) rotate(12deg); opacity: 0; }
+      0%   { transform: translateX(-140%) rotate(18deg); opacity: 0; }
       10%  { opacity: 1; }
-      45%  { transform: translateX(140%) rotate(12deg); opacity: 1; }
+      45%  { transform: translateX(140%) rotate(18deg); opacity: 1; }
       55%  { opacity: 0; }
-      100% { transform: translateX(140%) rotate(12deg); opacity: 0; }
+      100% { transform: translateX(140%) rotate(18deg); opacity: 0; }
     }
 
-    /* ✅ Bottom-left logo */
+    /* ✅ TOP-LEFT logo */
     .bottom-logo{
       position: fixed;
-      top: 10px;
-      left: 60px;
-      width: 64px;
-      pointer-events: none;
+      top: 10px;          /* ✅ top */
+      left: 20px;         /* ✅ left */
+      width: 64px;        /* ✅ size */
       z-index: 50;
-      overflow: hidden;
-      position: fixed;
-    }
-    .bottom-logo{
-      position: fixed;
-      bottom: 10px;
-      left: 20px;
-      width: 64px;
       pointer-events: none;
-      z-index: 50;
-      overflow: hidden;
 
-      /* ✅ IMPORTANT so ::after positions correctly */
-      position: fixed;
+      overflow: hidden;   /* ✅ clip the shine */
+      border-radius: 8px; /* optional */
     }
-    /* better: make it relative for the pseudo element */
-    .bottom-logo{
-      position: fixed;
-      bottom: 10px;
-      left: 20px;
-      width: 64px;
-      pointer-events: none;
-      z-index: 50;
-      overflow: hidden;
-      border-radius: 8px;
+
+    .bottom-logo img{
+      width: 100%;
+      height: auto;
+      display: block;
     }
+
     .bottom-logo::after{
       content: "";
       position: absolute;
@@ -469,18 +454,13 @@
       background: linear-gradient(
         120deg,
         transparent 40%,
-        rgba(255,255,255,0.35) 50%,
+        rgba(255,255,255,0.45) 50%,
         transparent 60%
       );
-      transform: translateX(-140%) rotate(12deg);
-      animation: shineSweep 4.2s ease-in-out infinite;
+      transform: translateX(-140%) rotate(18deg);
+      animation: shineSweep 4s ease-in-out infinite;
       mix-blend-mode: screen;
       pointer-events: none;
-    }
-    .bottom-logo img{
-      width: 100%;
-      height: auto;
-      display: block;
     }
   </style>
 </head>
@@ -525,7 +505,7 @@
             </div>
 
             <button class="btn" id="btnTap" type="button">energy bar</button>
-            <div class="small">SENDING ENERGY...</div>
+            <div class="small">SENDING ENERGY ⚡️...</div>
           </div>
         </div>
 
@@ -877,13 +857,10 @@
     init();
   </script>
 
-  <!-- ✅ Bottom-left logo -->
+  <!-- ✅ TOP-LEFT logo with shine sweep -->
   <div class="bottom-logo">
     <img src="logo2.png" alt="Logo">
   </div>
 
 </body>
 </html>
-
-
-
